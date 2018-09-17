@@ -20,6 +20,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.v4.app.ActivityCompat;
@@ -31,9 +32,15 @@ import android.util.SparseArray;
 import android.view.Display;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.Toast;
 
+import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Mat;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +50,12 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
+    static {
+        if (!OpenCVLoader.initDebug())
+            Log.d("ERROR", "Unable to load OpenCV");
+        else
+            Log.d("SUCCESS", "OpenCV loaded");
+    }
     private static final String TAG = "Camera2PreviewStream";
     /**
      * An {@link AutoFitTextureView} for camera preview.
@@ -190,12 +203,52 @@ public class MainActivity extends AppCompatActivity {
             };
 
     private static final int MINIMUM_PREVIEW_SIZE = 320;
+    private EncodeDecode encodeDecoder;
+    private int width = 480, height = 320, bitRate = 1000000;
+    private boolean dump = false;
+    private File file;
+    private ArrayList<Mat> frames = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        findViewById(R.id.start).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(!dump) {
+                    dump = true;
+                    ((Button)v).setText("STOP");
+                }else{
+                    dump = false;
+                    ((Button)v).setText("START");
+                }
+            }
+        });
+
+        findViewById(R.id.create_video).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Button btn = (Button)v;
+                if(btn.getText().toString().equalsIgnoreCase("VIDEO CREATION START")){
+                    btn.setText("VIDEO CREATION STOP");
+                    dump = false;
+                    encodeDecoder = new EncodeDecode(frames, file);
+                    try {
+                        encodeDecoder.encodeDecodeVideoFromBufferToSurface(width, height, bitRate);
+                    } catch (Throwable throwable) {
+                        throwable.printStackTrace();
+                    }
+                }else{
+                    btn.setText("VIDEO CREATION START");
+                }
+            }
+        });
+
         PermissionUtils.getInstance().initialize(this);
+
+
         textureView = (AutoFitTextureView) findViewById(R.id.texture);
         startBackgroundThread();
         // When the screen is turned off and turned back on, the SurfaceTexture is already
@@ -206,6 +259,19 @@ public class MainActivity extends AppCompatActivity {
             openCamera(textureView.getWidth(), textureView.getHeight());
         } else {
             textureView.setSurfaceTextureListener(surfaceTextureListener);
+        }
+
+        try
+        {
+            File directory = new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/take");
+            if (!directory.exists())
+            {
+                directory.mkdir();
+            }
+            file = new File(directory, "myvideo" + ".mp4");
+        } catch (Throwable e)
+        {
+            e.printStackTrace();
         }
     }
 
@@ -453,6 +519,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onImageAvailable(ImageReader reader) {
             Image i = reader.acquireLatestImage();
+            if(dump) {
+                processImage(ImageUtils.imageToMat(i));
+            }
             i.close();
             Log.d("hehe", "onImageAvailable");
         }
@@ -498,5 +567,9 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(getApplicationContext(), text, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void processImage(Mat mat) {
+        frames.add(mat);
     }
 }

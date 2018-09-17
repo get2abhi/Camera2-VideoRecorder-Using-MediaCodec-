@@ -11,9 +11,20 @@
         android:layout_height="match_parent"
         android:layout_alignParentBottom="true" />
 
-    <Button
-        android:id="@+id/start"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="START" />
+        android:orientation="vertical">
+        <Button
+            android:id="@+id/start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="START DUMPING FRAMES" />
+
+        <Button
+            android:id="@+id/create_video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VIDEO CREATION START" />
+    </LinearLayout>
 </LinearLayout>
